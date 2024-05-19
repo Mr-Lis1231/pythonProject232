@@ -9,16 +9,21 @@
     crossorigin="anonymous">
   <title>{{ title }}</title>
 </head>
+
 <body>
+<center>
 <header>
   <nav class="navbar navbar-light bg-light">
     <h1>Миссия Колонизация Марса</h1>
     <a class="navbar-brand" href="#">MarsOne</a>
   </nav>
-  <h4>И на Марсе будут яблони цвести!</h4>
+  <h4>И на Марсе будут яблони цвести! {{title}}</h4>
+  <a href="https://dnevnik.mos.ru/diary/schedules"><button>Дальше</button></a>
+  <a href="/index/{{title+1}}" class="btn btn-danger">Дальше</a>
 </header>
 <main role="main" class="container">
   {% block content%}{% endblock %}
 </main>
+  </center>
 </body>
 </html>
