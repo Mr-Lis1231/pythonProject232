@@ -1,6 +1,4 @@
 import g4f
-import uuid
-import os
 import subprocess
 import speech_recognition as sr
 from PIL import Image
