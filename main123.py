@@ -2,6 +2,7 @@ import g4f
 import subprocess
 import speech_recognition as sr
 from PIL import Image
+import wikipedia
 from googletrans import Translator, constants
 import requests
 translator = Translator()
@@ -12,11 +13,41 @@ bot = telebot.TeleBot("6607529150:AAHnO24RneV49PNkhZdGSdKf8VKFL3c0-9c")
 token = "6607529150:AAHnO24RneV49PNkhZdGSdKf8VKFL3c0-9c"
 
 
+@bot.message_handler(commands=['help'])
+def send_welcome(message):
+    bot.send_message(message.chat.id, 'Актуальные команды:'
+                                      '\n/start - Перезапуск бота. 💣'
+                                      '\n/wiki "запрос" - Поиск статьи по запросу в Википедии. 💫'
+                                      '\n/donate - Поддержать автора закинув ему на кофе. 🤑'.format(message.from_user))
 
+
+@bot.message_handler(commands=['donate'])
+def send_welcome(message):
+    bot.send_message(message.chat.id, '🤑Поддержать автора:'
+                                      '\nhttps://www.donationalerts.com/r/mrlis_'.format(message.from_user))
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    bot.send_message(message.chat.id, 'Hi i gpt 35 turbo on russian'.format(message.from_user))
+    bot.send_message(message.chat.id, 'Hi i gpt 35 turbo on russian \nПривет я телеграмм бот сделанный на основе Chat GPT 35 '
+                                      '\n\nВ данный момент я могу обрабатывать голосовые и текстовые сообщения\n\nМой создатель Лис 🥰🥰🥰'
+                                      '\n\nGitHub создателя, на котором я мб когда-то буду - https://github.com/Mr-Lis1231'.format(message.from_user))
+
+@bot.message_handler(commands=['wiki'])
+def search(message):
+    wikipedia.set_lang('ru')
+    query = message.text[5:]
+    if query == '':
+        bot.reply_to(message, 'Ваш запрос пуст 💀 ,\nвведите слово после команды,\nа я постараюсь найти статью.')
+    else:
+        try:
+            results = wikipedia.search(query)
+            if not results:
+                bot.send_message(message.chat.id, 'Ничего не найдено. ☠')
+            else:
+                page = wikipedia.page(results[0])
+                bot.reply_to(message, page.url)
+        except:
+            bot.send_message(message.chat.id, 'Ничего не найдено. ☠')
 
 
 logfile = str(datetime.date.today()) + '.log'
@@ -43,7 +74,7 @@ def get_audio_messages(message):
             f.write(doc.content)
         process = subprocess.run(['ffmpeg', '-i', fname+'.oga', fname+'.wav'])
         result = audio_to_text(fname+'.wav')
-        bot.send_message(message.chat.id, GPT4(format(result)))
+        bot.reply_to(message, GPT4(format(result)))
     except sr.UnknownValueError as e:
         bot.send_message(message.chat.id, "Прошу прощения, но я не разобрал сообщение или же оно пустое...")
         with open(logfile, 'a', encoding='utf-8') as f:
@@ -62,7 +93,7 @@ def GPT4(q):
     res = g4f.ChatCompletion.create(
         model='gpt-3.5-turbo',
         temperature=0.9,
-        max_tokens=10000,
+        max_tokens=1000,
         top_p=1.0,
         frequency_penalty=0.0,
         presensce_penalty=0.6,
@@ -82,7 +113,7 @@ def bot_message(message):
     res = g4f.ChatCompletion.create(
         model='gpt-3.5-turbo',
         temperature=0.9,
-        max_tokens=10000,
+        max_tokens=1000,
         top_p=1.0,
         frequency_penalty=0.0,
         presensce_penalty=0.6,
@@ -90,7 +121,7 @@ def bot_message(message):
         messages=[{'role': 'system', 'content': 'Помоги'}, {'role': 'user', 'content': q}]
     )
     translation = translator.translate(f'{res}', dest="ru")
-    bot.send_message(message.chat.id, f'{translation.text}'.format(message.from_user))
+    bot.reply_to(message, f'{translation.text}'.format(message.from_user))
 
 
 # translator = Translator()
