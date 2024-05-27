@@ -5,15 +5,21 @@ import subprocess
 import speech_recognition as sr
 import wikipedia
 from googletrans import Translator, constants
-translator = Translator()
 import datetime
 import os
-bot = telebot.TeleBot("6607529150:AAHnO24RneV49PNkhZdGSdKf8VKFL3c0-9c")
-token = "6607529150:AAHnO24RneV49PNkhZdGSdKf8VKFL3c0-9c"
 import time
 from telebot.types import InputFile
 import requests
 import base64
+
+translator = Translator()
+
+bot = telebot.TeleBot("6607529150:AAHnO24RneV49PNkhZdGSdKf8VKFL3c0-9c")
+token = "6607529150:AAHnO24RneV49PNkhZdGSdKf8VKFL3c0-9c"
+
+ban_word = ['геноцид ', 'гей', 'чмо', "пидр", 'хуесос', 'хуй', 'еблан', 'ебал', 'шлюх', 'шалава', 'пидор', "фашист",
+            "нацист", 'ебать', 'мудак', 'говно', 'хуета', 'мудил', 'мрази', 'шмара', 'шалавы',
+            'геи', 'лесбиянки', 'проститутки', 'хуесосы', 'лесби', 'порно', 'гитлер', 'холокост']
 
 
 class Text2ImageAPI:
@@ -49,13 +55,14 @@ class Text2ImageAPI:
         data = response.json()
         return data['uuid']
 
-    def check_generation(self, request_id, attempts=10, delay=10):
+    def check_generation(self, request_id, attempts=20000, delay=0.2):
         while attempts > 0:
             response = requests.get(self.URL + 'key/api/v1/text2image/status/' + request_id, headers=self.AUTH_HEADERS)
             data = response.json()
+            print(data)
             if data['status'] == 'DONE':
+                attempts = 0
                 return data['images']
-
             attempts -= 1
             time.sleep(delay)
 
@@ -77,6 +84,7 @@ def send_welcome(message):
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
+    bot.send_sticker(message.chat.id, 'CAACAgIAAxkBAAEFug5mVLKW4cKrpdhymtJMWJVI6Ux95QACxgEAAhZCawpKI9T0ydt5RzUE')
     bot.send_message(message.chat.id, 'Hi i gpt 35 turbo on russian \n'
                                       'Привет я телеграмм бот сделанный на основе Chat GPT 35 '
                                       '\n\nВ данный момент я могу обрабатывать голосовые и текстовые сообщения'
@@ -99,17 +107,25 @@ def search(message):
             else:
                 page = wikipedia.page(results[0])
                 bot.reply_to(message, page.url)
-        except:
+        except Exception:
             bot.send_message(message.chat.id, 'Ничего не найдено. ☠')
 
 
 @bot.message_handler(commands=['photo'])
 def search(message):
+    cou_ban = 0
     query = message.text[6:]
     api = Text2ImageAPI('https://api-key.fusionbrain.ai/', '3BE5852B362E5BA9FEEF6E322979EDC8',
                         '26582C8171B1B48207008D499B2FEAC0')
     model_id = api.get_model()
-    if query != '':
+    print(query)
+    for i in ban_word:
+        if i in query.lower():
+            bot.send_sticker(message.chat.id,
+                             'CAACAgIAAxkBAAEFuh5mVLPIZwVaKKusqfB-1xIrFSoYrgACpAEAAhZCawozOoCXqc8vXDUE')
+            cou_ban += 1
+    if query != '' and cou_ban == 0:
+        bot.reply_to(message, 'Ваш запрос передан в обработку примерное время ожидания от 2 до 5 минут')
         try:
             uuid = api.generate(f"{query}", model_id)
             images = api.check_generation(uuid)
@@ -117,16 +133,15 @@ def search(message):
             image_data = base64.b64decode(image_base64)
             with open("image.jpg", "wb") as file:
                 file.write(image_data)
-            bot.send_photo(message.chat.id, InputFile('image.jpg'))
-        except:
+            bot.send_photo(message.chat.id, reply_to_message_id=message.id, photo=InputFile('image.jpg'))
+        except Exception:
             bot.send_message(message.chat.id, 'Попробуйте переделать запрос. ☠')
     else:
-        bot.send_message(message.chat.id, "Прошу прощения, но я не разобрал сообщение или же оно пустое...")
+        bot.reply_to(message, "Прошу прощения, но ваше сообщение пустое или содержит плохие слова...")
 
 
 def audio_to_text(dest_name: str):
     r = sr.Recognizer()
-    # Read our .vaw file.
     message = sr.AudioFile(dest_name)
     with message as source:
         audio = r.record(source)
@@ -174,18 +189,21 @@ def GPT4(q):
 @bot.message_handler(content_types=['text'])
 def bot_message(message):
     q = message.text
-    res = g4f.ChatCompletion.create(
-        model='gpt-3.5-turbo',
-        temperature=0.9,
-        max_tokens=1000,
-        top_p=1.0,
-        frequency_penalty=0.0,
-        presensce_penalty=0.6,
-        stop=['You:'],
-        messages=[{'role': 'system', 'content': 'Помоги'}, {'role': 'user', 'content': q}]
-    )
-    translation = translator.translate(f'{res}', dest="ru")
-    bot.reply_to(message, f'{translation.text}'.format(message.from_user))
+    if q.lower() == 'лучший битмейкер зеленограда' or q.lower() == 'лучший бит зеленограда':
+        bot.send_sticker(message.chat.id, 'CAACAgIAAxkBAAEFuk5mVLo-SyZleP5BxHIpU1Ru3p9orgACrEsAAiuVqEmJd6VkyilSojUE')
+    else:
+        res = g4f.ChatCompletion.create(
+            model='gpt-3.5-turbo',
+            temperature=0.9,
+            max_tokens=1000,
+            top_p=1.0,
+            frequency_penalty=0.0,
+            presensce_penalty=0.6,
+            stop=['You:'],
+            messages=[{'role': 'system', 'content': 'Помоги'}, {'role': 'user', 'content': q}]
+        )
+        translation = translator.translate(f'{res}', dest="ru")
+        bot.reply_to(message, f'{translation.text}'.format(message.from_user))
 
 
 # translator = Translator()
@@ -209,5 +227,5 @@ def bot_message(message):
 while True:
     try:
         bot.polling(none_stop=True)
-    except:
+    except Exception:
         bot.polling(none_stop=True)
