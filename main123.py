@@ -1,16 +1,63 @@
 import g4f
+import telebot
+import json
 import subprocess
 import speech_recognition as sr
-from PIL import Image
 import wikipedia
 from googletrans import Translator, constants
-import requests
 translator = Translator()
 import datetime
-import telebot
 import os
 bot = telebot.TeleBot("6607529150:AAHnO24RneV49PNkhZdGSdKf8VKFL3c0-9c")
 token = "6607529150:AAHnO24RneV49PNkhZdGSdKf8VKFL3c0-9c"
+import time
+from telebot.types import InputFile
+import requests
+import base64
+
+
+class Text2ImageAPI:
+
+    def __init__(self, url, api_key, secret_key):
+        self.URL = url
+        self.AUTH_HEADERS = {
+            'X-Key': f'Key {api_key}',
+            'X-Secret': f'Secret {secret_key}',
+        }
+
+    def get_model(self):
+        response = requests.get(self.URL + 'key/api/v1/models', headers=self.AUTH_HEADERS)
+        data = response.json()
+        return data[0]['id']
+
+    def generate(self, prompt, model, images=1, width=1024, height=1024):
+        params = {
+            "type": "GENERATE",
+            "numImages": images,
+            "width": width,
+            "height": height,
+            "generateParams": {
+                "query": f"{prompt}"
+            }
+        }
+
+        data = {
+            'model_id': (None, model),
+            'params': (None, json.dumps(params), 'application/json')
+        }
+        response = requests.post(self.URL + 'key/api/v1/text2image/run', headers=self.AUTH_HEADERS, files=data)
+        data = response.json()
+        return data['uuid']
+
+    def check_generation(self, request_id, attempts=10, delay=10):
+        while attempts > 0:
+            response = requests.get(self.URL + 'key/api/v1/text2image/status/' + request_id, headers=self.AUTH_HEADERS)
+            data = response.json()
+            if data['status'] == 'DONE':
+                return data['images']
+
+            attempts -= 1
+            time.sleep(delay)
 
 
 @bot.message_handler(commands=['help'])
@@ -18,7 +65,8 @@ def send_welcome(message):
     bot.send_message(message.chat.id, 'Актуальные команды:'
                                       '\n/start - Перезапуск бота. 💣'
                                       '\n/wiki "запрос" - Поиск статьи по запросу в Википедии. 💫'
-                                      '\n/donate - Поддержать автора закинув ему на кофе. 🤑'.format(message.from_user))
+                                      '\n/donate - Поддержать автора закинув ему на кофе. 🤑'
+                                      '\n/photo "запрос" - Генерирует фото по запросу. 🥳'.format(message.from_user))
 
 
 @bot.message_handler(commands=['donate'])
@@ -26,11 +74,16 @@ def send_welcome(message):
     bot.send_message(message.chat.id, '🤑Поддержать автора:'
                                       '\nhttps://www.donationalerts.com/r/mrlis_'.format(message.from_user))
 
+
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    bot.send_message(message.chat.id, 'Hi i gpt 35 turbo on russian \nПривет я телеграмм бот сделанный на основе Chat GPT 35 '
-                                      '\n\nВ данный момент я могу обрабатывать голосовые и текстовые сообщения\n\nМой создатель Лис 🥰🥰🥰'
-                                      '\n\nGitHub создателя, на котором я мб когда-то буду - https://github.com/Mr-Lis1231'.format(message.from_user))
+    bot.send_message(message.chat.id, 'Hi i gpt 35 turbo on russian \n'
+                                      'Привет я телеграмм бот сделанный на основе Chat GPT 35 '
+                                      '\n\nВ данный момент я могу обрабатывать голосовые и текстовые сообщения'
+                                      '\n\nМой создатель Лис 🥰🥰🥰'
+                                      '\n\nGitHub создателя, на котором я мб когда-то буду - '
+                                      'https://github.com/Mr-Lis1231'.format(message.from_user))
+
 
 @bot.message_handler(commands=['wiki'])
 def search(message):
@@ -50,7 +103,25 @@ def search(message):
             bot.send_message(message.chat.id, 'Ничего не найдено. ☠')
 
 
-logfile = str(datetime.date.today()) + '.log'
+@bot.message_handler(commands=['photo'])
+def search(message):
+    query = message.text[6:]
+    api = Text2ImageAPI('https://api-key.fusionbrain.ai/', '3BE5852B362E5BA9FEEF6E322979EDC8',
+                        '26582C8171B1B48207008D499B2FEAC0')
+    model_id = api.get_model()
+    if query != '':
+        try:
+            uuid = api.generate(f"{query}", model_id)
+            images = api.check_generation(uuid)
+            image_base64 = images[0]
+            image_data = base64.b64decode(image_base64)
+            with open("image.jpg", "wb") as file:
+                file.write(image_data)
+            bot.send_photo(message.chat.id, InputFile('image.jpg'))
+        except:
+            bot.send_message(message.chat.id, 'Попробуйте переделать запрос. ☠')
+    else:
+        bot.send_message(message.chat.id, "Прошу прощения, но я не разобрал сообщение или же оно пустое...")
 
 
 def audio_to_text(dest_name: str):
@@ -61,6 +132,7 @@ def audio_to_text(dest_name: str):
         audio = r.record(source)
     result = r.recognize_google(audio, language="ru_RU")
     return result
+
 
 @bot.message_handler(content_types=['voice'])
 def get_audio_messages(message):
@@ -77,16 +149,11 @@ def get_audio_messages(message):
         bot.reply_to(message, GPT4(format(result)))
     except sr.UnknownValueError as e:
         bot.send_message(message.chat.id, "Прошу прощения, но я не разобрал сообщение или же оно пустое...")
-        with open(logfile, 'a', encoding='utf-8') as f:
-            f.write(str(datetime.datetime.today().strftime("%H:%M:%S")) + ':' + str(message.from_user.id) + ':' + str(message.from_user.first_name) + '_' + str(message.from_user.last_name) + ':' + str(message.from_user.username) +':'+ str(message.from_user.language_code) + ':Message is empty.\n')
     except Exception as e:
-        bot.send_message(message.chat.id, "наши смелые инженеры уже трудятся над решением...")
-        with open(logfile, 'a', encoding='utf-8') as f:
-            f.write(str(datetime.datetime.today().strftime("%H:%M:%S")) + ':' + str(message.from_user.id) + ':' + str(message.from_user.first_name) + '_' + str(message.from_user.last_name) + ':' + str(message.from_user.username) +':'+ str(message.from_user.language_code) +':' + str(e) + '\n')
+        bot.send_message(message.chat.id, "Наши смелые инженеры уже трудятся над решением...")
     finally:
         os.remove(fname+'.wav')
         os.remove(fname+'.oga')
-
 
 
 def GPT4(q):
@@ -102,9 +169,6 @@ def GPT4(q):
     )
     translation = translator.translate(f'{res}', dest="ru")
     return translation.text
-
-
-
 
 
 @bot.message_handler(content_types=['text'])
@@ -140,6 +204,8 @@ def bot_message(message):
 #     )
 #     translation = translator.translate(f'{res}', dest="ru")
 #     print(f"{translation.text}")
+
+
 while True:
     try:
         bot.polling(none_stop=True)
