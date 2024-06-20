@@ -11,6 +11,12 @@ import time
 from telebot.types import InputFile
 import requests
 import base64
+import pytesseract
+from pathlib import Path
+from PIL import Image
+path_to_tesseract = r"C:\Users\mrlis\PycharmProjects\pythonProject\tesseract-ocr-w64-setup-5.4.0.20240606.exe"
+
+pytesseract.tesseract_cmd = path_to_tesseract
 
 translator = Translator()
 
@@ -19,7 +25,11 @@ token = "6607529150:AAHnO24RneV49PNkhZdGSdKf8VKFL3c0-9c"
 
 ban_word = ['геноцид ', 'гей', 'чмо', "пидр", 'хуесос', 'хуй', 'еблан', 'ебал', 'шлюх', 'шалава', 'пидор', "фашист",
             "нацист", 'ебать', 'мудак', 'говно', 'хуета', 'мудил', 'мрази', 'шмара', 'шалавы',
-            'геи', 'лесбиянки', 'проститутки', 'хуесосы', 'лесби', 'порно', 'гитлер', 'холокост']
+            'геи', 'лесбиянк', 'проститутки', 'хуесосы', 'лесби', 'порно', 'гитлер', 'холокост',
+            'genocide', 'gay', 'schmuck', 'faggot', 'cocksucker', 'dick', 'fucker', 'fucked', 'whore', 'slut', 'faggot',
+            'fascist', "nazi", 'fuck', 'asshole', 'shit', 'scum',
+            'lesbian', 'prostitutes', 'cocksuckers', 'lesbians', 'porn', 'hitler', 'holocaust', 'убийца'
+            ]
 
 
 class Text2ImageAPI:
@@ -59,8 +69,8 @@ class Text2ImageAPI:
         while attempts > 0:
             response = requests.get(self.URL + 'key/api/v1/text2image/status/' + request_id, headers=self.AUTH_HEADERS)
             data = response.json()
-            print(data)
             if data['status'] == 'DONE':
+                print(f'Generation Time: {data['generationTime']} + second')
                 attempts = 0
                 return data['images']
             attempts -= 1
@@ -118,7 +128,6 @@ def search(message):
     api = Text2ImageAPI('https://api-key.fusionbrain.ai/', '3BE5852B362E5BA9FEEF6E322979EDC8',
                         '26582C8171B1B48207008D499B2FEAC0')
     model_id = api.get_model()
-    print(query)
     for i in ban_word:
         if i in query.lower():
             bot.send_sticker(message.chat.id,
@@ -189,22 +198,38 @@ def GPT4(q):
 @bot.message_handler(content_types=['text'])
 def bot_message(message):
     q = message.text
-    if q.lower() == 'лучший битмейкер зеленограда' or q.lower() == 'лучший бит зеленограда':
-        bot.send_sticker(message.chat.id, 'CAACAgIAAxkBAAEFuk5mVLo-SyZleP5BxHIpU1Ru3p9orgACrEsAAiuVqEmJd6VkyilSojUE')
-    else:
-        res = g4f.ChatCompletion.create(
-            model='gpt-3.5-turbo',
-            temperature=0.9,
-            max_tokens=1000,
-            top_p=1.0,
-            frequency_penalty=0.0,
-            presensce_penalty=0.6,
-            stop=['You:'],
-            messages=[{'role': 'system', 'content': 'Помоги'}, {'role': 'user', 'content': q}]
-        )
-        translation = translator.translate(f'{res}', dest="ru")
-        bot.reply_to(message, f'{translation.text}'.format(message.from_user))
+    res = g4f.ChatCompletion.create(
+        model='gpt-3.5-turbo',
+        temperature=0.9,
+        max_tokens=1000,
+        top_p=1.0,
+        frequency_penalty=0.0,
+        presensce_penalty=0.6,
+        stop=['You:'],
+        messages=[{'role': 'system', 'content': 'Помоги'}, {'role': 'user', 'content': q}]
+    )
+    translation = translator.translate(f'{res}', dest="ru")
+    bot.reply_to(message, f'{translation.text}'.format(message.from_user))
 
+
+
+
+
+@bot.message_handler(content_types='photo')
+def photka(message):
+    try:
+        # q = message.caption
+        # photo = message.photo[-1]
+        # file_info = bot.get_file(photo.file_id)
+        # downloaded_file = bot.download_file(file_info.file_path)
+        # save_path = 'photo1.jpg'
+        # with open(save_path, 'wb') as new_file:
+        #     new_file.write(downloaded_file)
+        if message.caption:
+            bot.reply_to(message, f'Вы подписали фото как{message.caption}')
+    finally:
+        bot.reply_to(message, 'Я еще не научился работать с фото ')
+    #     os.remove('photo1.jpg')
 
 # translator = Translator()
 # while True:
